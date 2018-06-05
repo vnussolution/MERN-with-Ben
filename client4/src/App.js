@@ -11,6 +11,7 @@ import ListItemText from "@material-ui/core/ListItemText";
 import Checkbox from "@material-ui/core/Checkbox";
 import IconButton from "@material-ui/core/IconButton";
 import CloseIcon from "@material-ui/icons/Close";
+import Form from "./Form";
 
 const TodoQuery = gql`
   {
@@ -34,6 +35,16 @@ const RemoveMutation = gql`
   }
 `;
 
+const CreateMutation = gql`
+  mutation($text: String!) {
+    createToDoo(text: $text) {
+      id
+      text
+      complete
+    }
+  }
+`;
+
 class App extends Component {
   updateTodoHandler = async todo => {
     //update todo
@@ -52,15 +63,29 @@ class App extends Component {
     });
   };
 
-  removeTodohandler = async todo => {
+  removeTodoHandler = async todo => {
     //remove todo
     await this.props.removeMyTodo({
       variables: { id: todo.id },
-      update: store => {
+      update: (store, data1) => {
         const data = store.readQuery({ query: TodoQuery });
-
+        console.log("removeTodoHandler", data1);
         data.todos = data.todos.filter(t => t.id !== todo.id);
         store.writeQuery({ query: TodoQuery, data });
+      }
+    });
+  };
+
+  createTodo = async text => {
+    //create todo
+    await this.props.createMyTodo({
+      variables: { text: text },
+      update: (store, { data: { createToDoo } }) => {
+        const myData = store.readQuery({ query: TodoQuery });
+        console.log(createToDoo, "my data", myData);
+        //if (createToDoo.__typename) delete createToDoo.__typename;
+        myData.todos.unshift(createToDoo);
+        store.writeQuery({ query: TodoQuery, myData });
       }
     });
   };
@@ -75,6 +100,7 @@ class App extends Component {
     return (
       <div style={{ display: "flex" }}>
         <div style={{ margin: "auto", width: 400 }}>
+          <Form submit={this.createTodo} />
           <Paper elevation={1}>
             <List>
               {todos.map(todo => (
@@ -92,7 +118,7 @@ class App extends Component {
                   />
                   <ListItemText primary={todo.text} />
                   <ListItemSecondaryAction>
-                    <IconButton onClick={() => this.removeTodohandler(todo)}>
+                    <IconButton onClick={() => this.removeTodoHandler(todo)}>
                       <CloseIcon />
                     </IconButton>
                   </ListItemSecondaryAction>
@@ -107,6 +133,7 @@ class App extends Component {
 }
 
 export default compose(
+  graphql(CreateMutation, { name: "createMyTodo" }),
   graphql(UpdateMutation, { name: "updateMyTodo" }),
   graphql(RemoveMutation, { name: "removeMyTodo" }),
   graphql(TodoQuery)
